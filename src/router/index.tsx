@@ -2,6 +2,7 @@ import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import StationListView from '../views/stations/StationListView';
+import DriverListView from '@/views/drivers/DriverListView';
 
 export const router = createBrowserRouter([
   {
@@ -22,7 +23,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'drivers',
-        element: <div className="p-6">Şoförler - Yakında...</div>,
+        element: <DriverListView />,
       },
       {
         path: 'trips/pending',

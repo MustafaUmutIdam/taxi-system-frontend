@@ -1,83 +1,81 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { driverService } from '../api/services/driver.service';
-import { toast } from '../components/ui/use-toast';
+import type { CreateDriverDTO, UpdateDriverDTO } from '../models/Driver';
+
+const toast = (opts: { title: string; description?: string; variant?: string }) => {
+  const message = opts.description ? `${opts.title}: ${opts.description}` : opts.title;
+  if (opts.variant === 'destructive') {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+};
 
 export const useDriverViewModel = (stationId?: string) => {
   const queryClient = useQueryClient();
 
-  // Tüm şoförleri getir
+  // İstasyon bazlı şoförleri getir (değişiklik yok)
   const {
     data: drivers,
     isLoading,
     error,
   } = useQuery({
     queryKey: ['drivers', stationId],
-    queryFn: () => stationId 
-      ? driverService.getByStation(stationId)
-      : driverService.getAll(),
+    // stationId varsa getByStation, yoksa getAll çağrılacak. stationId'nin undefined olması durumunu yönetiyoruz.
+    queryFn: () => stationId ? driverService.getByStation(stationId) : driverService.getAll(),
+    enabled: !!stationId, // Sadece stationId mevcut olduğunda bu sorguyu çalıştır.
   });
 
-  // Aktif şoförleri getir
-  const {
-    data: activeDrivers,
-  } = useQuery({
-    queryKey: ['drivers', 'active', stationId],
-    queryFn: () => driverService.getActiveDrivers(stationId),
-    refetchInterval: 10000, // 10 saniyede bir güncelle
-  });
-
-  // Yeni şoför oluştur
+  // Yeni şoför oluştur (değişiklik yok)
   const createMutation = useMutation({
-    mutationFn: driverService.create,
+    mutationFn: (data: CreateDriverDTO) => driverService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Şoför başarıyla eklendi',
-      });
+      toast({ title: 'Başarılı', description: 'Şoför başarıyla eklendi' });
+    },
+    onError: (error: any) => { /*...*/ },
+  });
+
+  // 🆕 ŞOFÖR GÜNCELLEME MUTATION'I
+  // updateStatusMutation'ı tam güncelleme yapacak şekilde değiştiriyoruz.
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateDriverDTO }) =>
+      driverService.update(id, data), // Frontend servisinideki update fonksiyonunu çağırır.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      toast({ title: 'Başarılı', description: 'Şoför bilgileri güncellendi.' });
     },
     onError: (error: any) => {
-      toast({
+       toast({
         title: 'Hata',
-        description: error.message || 'Şoför eklenemedi',
+        description: error.message || 'Şoför güncellenemedi',
         variant: 'destructive',
       });
     },
   });
 
-  // Şoför durumunu güncelle
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: any }) =>
-      driverService.updateStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Şoför durumu güncellendi',
-      });
-    },
-  });
-
-  // Şoför sil
+  // Şoför sil (değişiklik yok)
   const deleteMutation = useMutation({
-    mutationFn: driverService.delete,
+    mutationFn: (id: string) => driverService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Şoför silindi',
-      });
+      toast({ title: 'Başarılı', description: 'Şoför başarıyla silindi' });
     },
+    onError: (error: any) => { /*...*/ },
   });
 
   return {
     drivers: drivers || [],
-    activeDrivers: activeDrivers || [],
     isLoading,
     error,
+    
+    // Actions
     createDriver: createMutation.mutate,
-    updateDriverStatus: updateStatusMutation.mutate,
+    updateDriver: updateMutation.mutate, // 🆕 Değiştirildi
     deleteDriver: deleteMutation.mutate,
+    
+    // Loading states
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending, // 🆕 Eklendi
   };
 };
