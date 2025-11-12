@@ -1,100 +1,66 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tripService } from '../api/services/trip.service';
-import { toast } from '../components/ui/use-toast';
+import type { CreateTripDTO } from '../models/Trip';
 
-export const useTripViewModel = (stationId?: string) => {
+// Basit toast fonksiyonu
+const showToast = (title: string, description: string, type: 'success' | 'error' = 'success') => {
+  console.log(`[${type.toUpperCase()}] ${title}: ${description}`);
+};
+
+export const useTripViewModel = (status?: string) => {
   const queryClient = useQueryClient();
 
-  // Bekleyen yolculuklar
+  // Trip'leri getir
   const {
-    data: pendingTrips,
-    isLoading: isPendingLoading,
+    data: trips,
+    isLoading,
+    error,
+    refetch
   } = useQuery({
-    queryKey: ['trips', 'pending', stationId],
-    queryFn: () => tripService.getPending(stationId),
-    refetchInterval: 5000, // 5 saniyede bir güncelle
+    queryKey: ['trips', status],
+    queryFn: () => status ? tripService.getByStatus(status) : tripService.getAll(),
+    refetchInterval: status === 'pending' || status === 'assigned' ? 5000 : undefined, // Pending ve assigned için otomatik güncelleme
   });
 
-  // Aktif yolculuklar
-  const {
-    data: activeTrips,
-    isLoading: isActiveLoading,
-  } = useQuery({
-    queryKey: ['trips', 'active', stationId],
-    queryFn: () => tripService.getActive(stationId),
-    refetchInterval: 10000,
-  });
-
-  // Tamamlanan yolculuklar
-  const {
-    data: completedTrips,
-    isLoading: isCompletedLoading,
-  } = useQuery({
-    queryKey: ['trips', 'completed', stationId],
-    queryFn: () => tripService.getCompleted({ station: stationId }),
-  });
-
-  // Yeni yolculuk oluştur
+  // Yeni trip oluştur
   const createMutation = useMutation({
-    mutationFn: tripService.create,
+    mutationFn: (data: CreateTripDTO) => tripService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Yolculuk talebi oluşturuldu',
-      });
+      showToast('Başarılı', 'Yolculuk oluşturuldu ve şoföre atandı', 'success');
     },
     onError: (error: any) => {
-      toast({
-        title: 'Hata',
-        description: error.message || 'Yolculuk oluşturulamadı',
-        variant: 'destructive',
-      });
+      console.error('Error creating trip:', error);
+      showToast('Hata', error.message || 'Yolculuk oluşturulamadı', 'error');
     },
   });
 
-  // Şoför ata
-  const assignDriverMutation = useMutation({
-    mutationFn: ({ tripId, driverId }: { tripId: string; driverId: string }) =>
-      tripService.assignDriver(tripId, driverId),
+  // İptal edilen trip'i yeniden gönder
+  const resendMutation = useMutation({
+    mutationFn: (id: string) => tripService.resend(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Şoför atandı',
-      });
+      showToast('Başarılı', 'Yolculuk yeniden gönderildi', 'success');
     },
-  });
-
-  // Yolculuğu iptal et
-  const cancelMutation = useMutation({
-    mutationFn: ({ tripId, reason }: { tripId: string; reason: string }) =>
-      tripService.cancel(tripId, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] });
-      toast({
-        title: 'Başarılı',
-        description: 'Yolculuk iptal edildi',
-      });
+    onError: (error: any) => {
+      console.error('Error resending trip:', error);
+      showToast('Hata', error.message || 'Yolculuk gönderilemedi', 'error');
     },
-  });
-
-  // Mesafe ve ücret hesapla
-  const calculateFareMutation = useMutation({
-    mutationFn: tripService.calculateFare,
   });
 
   return {
-    pendingTrips: pendingTrips || [],
-    activeTrips: activeTrips || [],
-    completedTrips: completedTrips || [],
-    isPendingLoading,
-    isActiveLoading,
-    isCompletedLoading,
+    // Data
+    trips: trips || [],
+    isLoading,
+    error,
+
+    // Actions
     createTrip: createMutation.mutate,
-    assignDriver: assignDriverMutation.mutate,
-    cancelTrip: cancelMutation.mutate,
-    calculateFare: calculateFareMutation.mutateAsync,
+    resendTrip: resendMutation.mutate,
+    refetch,
+
+    // Loading states
     isCreating: createMutation.isPending,
+    isResending: resendMutation.isPending,
   };
 };

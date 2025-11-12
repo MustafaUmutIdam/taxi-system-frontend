@@ -6,6 +6,11 @@ import LoginView from '../views/auth/LoginView';
 import RegisterView from '../views/auth/RegisterView';
 import StationListView from '../views/stations/StationListView';
 import DriverListView from '@/views/drivers/DriverListView';
+import CreateTripView from '@/views/trips/CreateTripView';
+import PendingTripsView from '@/views/trips/PendingTripsView';
+import ActiveTripsView from '@/views/trips/ActiveTripsView';
+import CompletedTripsView from '@/views/trips/ComplatedTripsView';
+import CancelledTripsView from '@/views/trips/CancelledTripsView';
 
 export const router = createBrowserRouter([
   // Public routes
@@ -44,20 +49,24 @@ export const router = createBrowserRouter([
         element: <DriverListView />,
       },
       {
+        path: 'trips/create',
+        element: <CreateTripView />,
+      },
+       {
         path: 'trips/pending',
-        element: <div className="p-6">Bekleyen İşler - Yakında...</div>,
+        element: <PendingTripsView />,
       },
       {
         path: 'trips/active',
-        element: <div className="p-6">Aktif İşler - Yakında...</div>,
+        element: <ActiveTripsView/>,
       },
       {
         path: 'trips/completed',
-        element: <div className="p-6">Tamamlanan İşler - Yakında...</div>,
+        element: <CompletedTripsView />,
       },
       {
         path: 'trips/cancelled',
-        element: <div className="p-6">İptal Edilen İşler - Yakında...</div>,
+        element: <CancelledTripsView />,
       },
       {
         path: 'reports',
